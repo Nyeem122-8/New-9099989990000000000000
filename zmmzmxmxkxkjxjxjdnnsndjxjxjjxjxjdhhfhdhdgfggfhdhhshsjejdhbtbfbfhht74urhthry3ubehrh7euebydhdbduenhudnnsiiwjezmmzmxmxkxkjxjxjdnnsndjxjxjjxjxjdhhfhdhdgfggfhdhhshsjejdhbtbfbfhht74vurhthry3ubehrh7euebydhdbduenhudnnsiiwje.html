@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Dark Hack 2.2</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.3/dist/tailwind.min.css" rel="stylesheet" />
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+    }
+    body {
+      background-color: #0d1117;
+      font-family: 'Courier New', monospace;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 2rem 1rem;
+      box-sizing: border-box;
+    }
+    header h1 {
+      font-size: 2.5rem;
+      color: #3b82f6;
+      font-weight: 900;
+      margin-bottom: 1rem;
+    }
+    #infoBox {
+      background: #1e3a8a;
+      border: 2px solid #3b82f6;
+      border-radius: 12px;
+      padding: 1.5rem 2rem;
+      width: 350px;
+      box-shadow: 0 0 15px #3b82f6;
+      margin-bottom: 1.5rem;
+      font-weight: 700;
+      font-size: 1.2rem;
+      line-height: 1.8;
+    }
+    #infoBox span.label {
+      color: #ef4444; /* Red label */
+    }
+    #numbersBox span.number {
+      background: #2563eb;
+      padding: 4px 10px;
+      margin-right: 8px;
+      border-radius: 8px;
+      font-weight: 900;
+      font-size: 1.3rem;
+      display: inline-block;
+      min-width: 32px;
+      text-align: center;
+    }
+    #colorText {
+      display: inline-block;
+      font-weight: 900;
+      padding: 4px 12px;
+      border-radius: 12px;
+      margin-left: 6px;
+      font-size: 1.1rem;
+      text-transform: uppercase;
+    }
+    #colorText.red {
+      background-color: #dc2626;
+      color: white;
+    }
+    #colorText.green {
+      background-color: #22c55e;
+      color: #0f172a;
+    }
+    #buttons {
+      margin-bottom: 2rem;
+    }
+    button {
+      background-color: #3b82f6;
+      border: none;
+      border-radius: 12px;
+      padding: 0.8rem 2rem;
+      color: white;
+      font-weight: 900;
+      font-family: 'Courier New', monospace;
+      font-size: 1.2rem;
+      cursor: pointer;
+      transition: background-color 0.3s ease, transform 0.3s ease;
+      box-shadow: 0 0 10px #3b82f6;
+    }
+    button:hover {
+      background-color: #ef4444;
+      box-shadow: 0 0 15px #ef4444;
+      transform: scale(1.05);
+    }
+    #gameDataContainer {
+      max-width: 400px;
+      width: 100%;
+      font-family: Arial, sans-serif;
+      margin-top: 1rem;
+    }
+    #gameDataContainer table {
+      width: 100%;
+      border-collapse: collapse;
+      background-color: #22272e;
+      color: white;
+    }
+    #gameDataContainer th, #gameDataContainer td {
+      padding: 8px 12px;
+      border: 1px solid #374151;
+      text-align: center;
+    }
+    #gameDataContainer th {
+      background-color: #2563eb;
+      color: black;
+    }
+    #gameDataContainer tr:nth-child(even) {
+      background-color: #1f2937;
+    }
+    #gameDataContainer tr:hover {
+      background-color: #374151;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Dark Hack</h1>
+  </header>
+
+  <div id="infoBox">
+    Big/Small: <span id="bigSmall" class="label">--</span><br />
+    Red/Green: <span id="redGreen" class="label">--</span><br />
+    Number: <span id="numbersBox"></span><br />
+    Person: <span id="person" class="label">--</span>%
+  </div>
+
+  <div id="buttons">
+    <button id="fetchBtn">GO</button>
+  </div>
+
+  <div id="gameDataContainer"></div>
+
+  <script>
+    const bigSmallEl = document.getElementById('bigSmall');
+    const redGreenEl = document.getElementById('redGreen');
+    const numbersBox = document.getElementById('numbersBox');
+    const personEl = document.getElementById('person');
+    const fetchBtn = document.getElementById('fetchBtn');
+    const gameDataContainer = document.getElementById('gameDataContainer');
+
+    function categorizeNumber(num) {
+      return num <= 4 ? 'SMALL' : 'BIG';
+    }
+
+    function analyze(dataList) {
+      const numbers = dataList.map(d => Number(d.number));
+      const freq = {};
+      numbers.forEach(n => freq[n] = (freq[n] || 0) + 1);
+
+      const sortedFreq = Object.entries(freq).sort((a,b) => b[1] - a[1]);
+      const top3Numbers = sortedFreq.slice(0,3).map(e => e[0]);
+
+      let bigCount = 0, smallCount = 0;
+      numbers.forEach(n => {
+        if(n <= 4) smallCount++;
+        else bigCount++;
+      });
+
+      let bigSmallPattern = 'SKIP..';
+      if(bigCount > smallCount) bigSmallPattern = 'BIG';
+      else if(smallCount > bigCount) bigSmallPattern = 'SMALL';
+
+      const colorCount = { red: 0, green: 0 };
+      dataList.forEach(item => {
+        const colors = item.colour.toLowerCase().split(',');
+        colors.forEach(c => {
+          if(c === 'red' || c === 'green') {
+            colorCount[c] = (colorCount[c] || 0) + 1;
+          }
+        });
+      });
+
+      const colorEntries = Object.entries(colorCount);
+      let topColor = 'none';
+      if(colorEntries.length) {
+        topColor = colorEntries.reduce((a,b) => (a[1] > b[1] ? a : b))[0];
+      }
+
+      let confidence = 70;
+      const diff = Math.abs(bigCount - smallCount);
+      if(diff >= 3) confidence = 90;
+      else if(diff === 2) confidence = 82;
+      else if(diff === 1) confidence = 75;
+
+      if(sortedFreq[0][1] >= 3) confidence += 5;
+      if(confidence > 95) confidence = 95;
+
+      return {
+        bigSmallPattern,
+        topColor,
+        top3Numbers,
+        confidence
+      };
+    }
+
+    function renderInfo(analysis) {
+      bigSmallEl.textContent = analysis.bigSmallPattern;
+      personEl.textContent = analysis.confidence.toFixed(0);
+      numbersBox.innerHTML = '';
+      analysis.top3Numbers.forEach(num => {
+        const span = document.createElement('span');
+        span.textContent = num;
+        span.className = 'number';
+        numbersBox.appendChild(span);
+      });
+
+      if(analysis.bigSmallPattern === 'SKIP..') {
+        redGreenEl.textContent = analysis.topColor.toUpperCase();
+        if(analysis.topColor === 'red') {
+          redGreenEl.className = 'label red';
+        } else if(analysis.topColor === 'green') {
+          redGreenEl.className = 'label green';
+        } else {
+          redGreenEl.className = 'label';
+        }
+      } else {
+        redGreenEl.textContent = '--';
+        redGreenEl.className = 'label';
+      }
+    }
+
+    function renderTable(list) {
+      gameDataContainer.innerHTML = '';
+      const table = document.createElement('table');
+      const thead = document.createElement('thead');
+      thead.innerHTML = `
+        <tr>
+          <th>Issue</th>
+          <th>Number</th>
+          <th>Colour</th>
+        </tr>`;
+      table.appendChild(thead);
+
+      const tbody = document.createElement('tbody');
+      list.forEach(item => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${item.issueNumber}</td>
+          <td>${item.number}</td>
+          <td>${item.colour}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      gameDataContainer.appendChild(table);
+    }
+
+    async function fetchAndShow() {
+      fetchBtn.disabled = true;
+      fetchBtn.textContent = 'Loading...';
+
+      try {
+        const res = await fetch('https://crbbb.com/api/webapi/GetNoaverageEmerdList', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json;charset=UTF-8' },
+          body: JSON.stringify({
+            pageSize: 10,
+            pageNo: 1,
+            typeId: 30,
+            language: 0,
+            random: "62d02162c2234c64b57aa4188c5810b2",
+            signature: "9BF7A245709AA054E231D75C404C6527",
+            timestamp: Math.floor(Date.now() / 1000)
+          })
+        });
+        const data = await res.json();
+
+        if(!data || !data.data || !data.data.list) {
+          alert('No data found!');
+          fetchBtn.disabled = false;
+          fetchBtn.textContent = 'GO';
+          return;
+        }
+
+        const list = data.data.list;
+        const analysis = analyze(list);
+        renderInfo(analysis);
+        renderTable(list);
+      } catch (e) {
+        alert('Failed to fetch data!');
+        console.error(e);
+      } finally {
+        fetchBtn.disabled = false;
+        fetchBtn.textContent = 'GO';
+      }
+    }
+
+    fetchBtn.addEventListener('click', fetchAndShow);
+  </script>
+</body>
+</html>
